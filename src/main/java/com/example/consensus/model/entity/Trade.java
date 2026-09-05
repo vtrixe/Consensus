@@ -11,15 +11,22 @@ import lombok.experimental.Accessors;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+
 @Entity
-@Table(name = "trades")
+@Table(name = "trades", uniqueConstraints = @UniqueConstraint(columnNames = {"trade_id", "source"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
 public class Trade {
-    @EmbeddedId
-    private TradeId id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    @Column(name = "trade_id", nullable = false)
+    private String tradeId;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DataSource source;
     @Column(nullable = false)
     private String symbol;
     @Column(nullable = false, precision = 19, scale = 6)

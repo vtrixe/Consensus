@@ -1,34 +1,4 @@
 services:
-  activemq:
-    image: 'apache/activemq:latest'
-    ports:
-      - '61616'
-  artemis:
-    image: 'apache/artemis:latest'
-    ports:
-      - '61616'
-  cassandra:
-    image: 'cassandra:latest'
-    environment:
-      - 'CASSANDRA_DC=dc1'
-      - 'CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch'
-    ports:
-      - '9042'
-  elasticsearch:
-    image: 'docker.elastic.co/elasticsearch/elasticsearch:9.3.3'
-    environment:
-      - 'ELASTIC_PASSWORD=secret'
-      - 'discovery.type=single-node'
-      - 'xpack.security.enabled=false'
-    ports:
-      - '9200'
-      - '9300'
-  grafana-lgtm:
-    image: 'grafana/otel-lgtm:latest'
-    ports:
-      - '3000:3000'
-      - '4317'
-      - '4318'
   postgres:
     image: 'postgres:latest'
     environment:
@@ -37,7 +7,49 @@ services:
       - 'POSTGRES_USER=myuser'
     ports:
       - '5432'
-  redis:
-    image: 'redis:latest'
-    ports:
-      - '6379'
+
+# Uncomment these as you need them:
+#  redis:
+#    image: 'redis:latest'
+#    ports:
+#      - '6379'
+#
+#  kafka:
+#    image: 'apache/kafka:latest'
+#    ports:
+#      - '9092'
+#
+#  cassandra:
+#    image: 'cassandra:latest'
+#    environment:
+#      - 'CASSANDRA_DC=dc1'
+#      - 'CASSANDRA_ENDPOINT_SNITCH=GossipingPropertyFileSnitch'
+#    ports:
+#      - '9042'
+#
+#  elasticsearch:
+#    image: 'docker.elastic.co/elasticsearch/elasticsearch:9.3.3'
+#    environment:
+#      - 'ELASTIC_PASSWORD=secret'
+#      - 'discovery.type=single-node'
+#      - 'xpack.security.enabled=false'
+#    ports:
+#      - '9200'
+#      - '9300'
+#
+#  activemq:
+#    image: 'apache/activemq:latest'
+#    ports:
+#      - '61616'
+#
+#  artemis:
+#    image: 'apache/artemis:latest'
+#    ports:
+#      - '61616'
+#
+#  grafana-lgtm:
+#    image: 'grafana/otel-lgtm:latest'
+#    ports:
+#      - '3000:3000'
+#      - '4317'
+#      - '4318'
