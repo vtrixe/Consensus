@@ -189,7 +189,7 @@ public class TradeGenerator {
             // fetch real prices from Alpha Vantage
             Map<String, EquityPrices.DailyData> priceSeries;
             try {
-                priceSeries = marketDataOutbound.getDailySeries(symbol).timeSeriesDaily();
+                priceSeries = marketDataOutbound.getDailySeries(symbol).getTimeSeriesDaily();
                 Thread.sleep(15_000); // stay under free tier: 5 requests/min
             } catch (Exception e) {
                 log.warn("Skipping symbol {} — API call failed: {}", symbol, e.getMessage());
@@ -204,7 +204,7 @@ public class TradeGenerator {
             for (String dateStr : selectedDates) {
                 LocalDate tradeDate = LocalDate.parse(dateStr);
                 BigDecimal price = new BigDecimal(
-                        priceSeries.get(dateStr).close()
+                        priceSeries.get(dateStr).getClose()
                 );
 
                 BreakScenario scenario = BreakScenario.pick(random);

@@ -1,12 +1,15 @@
 package com.example.consensus.reconciliation;
 
+import com.example.consensus.model.Enums.BreakStatus;
 import com.example.consensus.model.entity.TradeBreak;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
 public interface ReconciliationService {
 
-    public List<TradeBreak> reconcile();
+    List<TradeBreak> reconcile();
+
+    List<TradeBreak> findBreaks(BreakStatus status); // null = return all
+
+    List<TradeBreak> findBreaksByTradeId(String tradeId);
 }

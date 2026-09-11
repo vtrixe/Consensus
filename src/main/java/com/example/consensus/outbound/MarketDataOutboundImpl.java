@@ -1,11 +1,13 @@
 package com.example.consensus.outbound;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.util.Objects;
 
+@Slf4j
 @Component
 public class MarketDataOutboundImpl implements MarketDataOutbound {
 
@@ -28,7 +30,14 @@ public class MarketDataOutboundImpl implements MarketDataOutbound {
                 .retrieve()
                 .body(EquityPrices.class);
 
-        if (Objects.isNull(response) || Objects.isNull(response.timeSeriesDaily())) {
+        // Temporary diagnostic — remove once seeding works
+        String rawCheck = restClient.get()
+                .uri("/query?function=TIME_SERIES_DAILY&symbol={symbol}&apikey={apiKey}", symbol, apiKey)
+                .retrieve()
+                .body(String.class);
+        log.info("RAW AV response for {}: {}", symbol, rawCheck == null ? "null" : rawCheck.substring(0, Math.min(300, rawCheck.length())));
+
+        if (Objects.isNull(response) || Objects.isNull(response.getTimeSeriesDaily())) {
             throw new IllegalStateException("No data returned from Alpha Vantage for symbol: " + symbol);
         }
 
