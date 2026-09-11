@@ -98,7 +98,6 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                 })
                 .forEach(breaks::add);
 
-        tradeBreakRepository.saveAll(breaks);
         log.info("Reconciliation complete — {} break(s) found", breaks.size());
         return breaks;
     }
@@ -129,13 +128,15 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                 .setBpsDeviation(bpsDeviation)
                 .setEstimatedResolutionMinutes(estimatedResolutionMinutes);
 
+        // Step 1: notional impact + old threshold tier + sets settlementDate
         materialityScorer.notion(tradeBreak);
+        // Step 2: composite score (urgency + ADV + notional + counterparty) + sets minutesToSettlement
         tradeBreak.setCompositeScore(materialityScorer.scoreTradeBreak(tradeBreak));
-
+        // Step 3: feasibility gate — can this break be resolved before settlement cutoff?
         Long minutesLeft = tradeBreak.getMinutesToSettlement();
         boolean failRisk = minutesLeft != null
                 && estimatedResolutionMinutes != null
-                && (minutesLeft - estimatedResolutionMinutes) < 0;
+                && minutesLeft < estimatedResolutionMinutes;
         tradeBreak.setSettlementFailRisk(failRisk);
 
         return tradeBreakRepository.save(tradeBreak);
