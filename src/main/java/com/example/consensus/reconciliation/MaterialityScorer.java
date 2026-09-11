@@ -60,6 +60,16 @@ public class MaterialityScorer {
         COUNTERPARTY_TIERS.put("TwoSigma", 2); // see note below
     }
 
+    private static final Map<BreakType, Long> BASE_RESOLUTION_MINUTES = Map.of(
+            BreakType.MISSING_CUSTODIAN,        180L, // external chase — slowest
+            BreakType.MISSING_BLOTTER,          120L,
+            BreakType.PRICE_MISMATCH,            45L,
+            BreakType.QUANTITY_MISMATCH,         45L,
+            BreakType.SETTLEMENT_DATE_MISMATCH,  60L,
+            BreakType.COUNTERPARTY_MISMATCH,     90L
+    );
+
+
     private final TradeRepository tradeRepository;
 
     public void notion(TradeBreak tradeBreak) {
@@ -196,6 +206,34 @@ public class MaterialityScorer {
         if (notional.compareTo(BigDecimal.valueOf(10_000_000)) >= 0) return 15L; // $10M–$50M
         if (notional.compareTo(BigDecimal.valueOf(1_000_000))  >= 0) return 8L;  // $1M–$10M
         return 0L; // <$1M
+    }
+
+
+    public Long estimateResolutionMinutes(BreakType breakType, String counterparty, String symbol, BigDecimal quantity) {
+        long base = BASE_RESOLUTION_MINUTES.getOrDefault(breakType, 60L);
+
+        // counterparty tier adjustment — lower tier (less established) takes longer
+        int tier = COUNTERPARTY_TIERS.getOrDefault(counterparty, 3);
+        double tierMultiplier = switch (tier) {
+            case 1 -> 0.8;  // faster — established relationship, likely automated
+            case 2 -> 1.0;  // baseline
+            default -> 1.3; // tier 3 / unmapped — slower
+        };
+
+        // ADV concentration adjustment — larger relative position takes longer to unwind/confirm
+        Long adv = SYMBOL_ADV.get(symbol);
+        double advMultiplier = 1.0;
+        if (adv != null && adv > 0L && quantity != null) {
+            BigDecimal concentrationPct = quantity
+                    .divide(BigDecimal.valueOf(adv), 6, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+
+            if (concentrationPct.compareTo(BigDecimal.valueOf(20)) >= 0)      advMultiplier = 1.4;
+            else if (concentrationPct.compareTo(BigDecimal.valueOf(5)) >= 0)  advMultiplier = 1.15;
+            // else stays 1.0
+        }
+
+        return Math.round(base * tierMultiplier * advMultiplier);
     }
 
 

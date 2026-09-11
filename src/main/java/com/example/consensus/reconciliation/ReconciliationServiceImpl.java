@@ -9,7 +9,6 @@ import com.example.consensus.model.repository.TradeBreakRepository;
 import com.example.consensus.model.repository.TradeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.BooleanUtils;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -44,42 +43,59 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                     .findByTradeIdAndSource(blotter.getTradeId(), DataSource.CUSTODIAN);
 
             if (custodianOpt.isEmpty()) {
-                breaks.add(newBreak(blotter.getTradeId(), BreakType.MISSING_CUSTODIAN, null, null,null));
+                Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.MISSING_CUSTODIAN, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
+                breaks.add(newBreak(blotter.getTradeId(), BreakType.MISSING_CUSTODIAN, null, null,null, estimatedMinutestoResolution));
             } else {
                 Trade cust = custodianOpt.get();
                 if (!withinTolerance(blotter, cust, BreakType.PRICE_MISMATCH)) {
+                    Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.PRICE_MISMATCH, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
                     breaks.add(newBreak(
                             blotter.getTradeId(),
                             BreakType.PRICE_MISMATCH,
                             blotter.getPrice().toString(),
                             cust.getPrice().toString(),
-                            calculateBpsDeviation(blotter, cust)
+                            calculateBpsDeviation(blotter, cust),
+                            estimatedMinutestoResolution
                     ));
                 }
 
                 if (!withinTolerance(blotter, cust, BreakType.QUANTITY_MISMATCH)) {
+                    Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.QUANTITY_MISMATCH, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
                     breaks.add(newBreak(
                             blotter.getTradeId(),
                             BreakType.QUANTITY_MISMATCH,
                             blotter.getQuantity().toString(),
                             cust.getQuantity().toString(),
-                            calculateBpsDeviation(blotter, cust)
+                            calculateBpsDeviation(blotter, cust),
+                            estimatedMinutestoResolution
                     ));
                 }
 
-                if (!blotter.getSettlementDate().equals(cust.getSettlementDate()))
+                if (!blotter.getSettlementDate().equals(cust.getSettlementDate())) {
+                    Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.SETTLEMENT_DATE_MISMATCH, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
                     breaks.add(newBreak(blotter.getTradeId(), BreakType.SETTLEMENT_DATE_MISMATCH,
-                            blotter.getSettlementDate().toString(), cust.getSettlementDate().toString(),null));
+                            blotter.getSettlementDate().toString(), cust.getSettlementDate().toString(), null, estimatedMinutestoResolution));
+                }
 
-                if (!blotter.getCounterparty().equals(cust.getCounterparty()))
+                if (!blotter.getCounterparty().equals(cust.getCounterparty())) {
+                    Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.COUNTERPARTY_MISMATCH, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
                     breaks.add(newBreak(blotter.getTradeId(), BreakType.COUNTERPARTY_MISMATCH,
-                            blotter.getCounterparty(), cust.getCounterparty(),null));
+                            blotter.getCounterparty(), cust.getCounterparty(), null,estimatedMinutestoResolution));
+                }
             }
         }
 
         tradeRepository.findBySource(DataSource.CUSTODIAN).stream()
                 .filter(c -> !blotterTradeIds.contains(c.getTradeId()))
-                .map(c -> newBreak(c.getTradeId(), BreakType.MISSING_BLOTTER, null, c.getTradeId(), null))
+                .map(c -> {
+                    long estimated = materialityScorer.estimateResolutionMinutes(
+                            BreakType.MISSING_BLOTTER,
+                            c.getCounterparty(),
+                            c.getSymbol(),
+                            c.getQuantity()
+                    );
+                    return newBreak(c.getTradeId(), BreakType.MISSING_BLOTTER, null, null, null, estimated);
+                })
                 .forEach(breaks::add);
 
         tradeBreakRepository.saveAll(breaks);
@@ -100,18 +116,27 @@ public class ReconciliationServiceImpl implements ReconciliationService {
     }
 
     private TradeBreak newBreak(String tradeId, BreakType type,
-                                String blotterValue, String custodianValue,BigDecimal bpsDeviation) {
+                                String blotterValue, String custodianValue,
+                                BigDecimal bpsDeviation, Long estimatedResolutionMinutes) {
 
-   TradeBreak tradeBreak =  new TradeBreak()
+        TradeBreak tradeBreak = new TradeBreak()
                 .setTradeId(tradeId)
                 .setBreakType(type)
                 .setBlotterValue(blotterValue)
                 .setCustodianValue(custodianValue)
                 .setDetectedAt(LocalDateTime.now())
                 .setStatus(BreakStatus.OPEN)
-                .setBpsDeviation(bpsDeviation);
+                .setBpsDeviation(bpsDeviation)
+                .setEstimatedResolutionMinutes(estimatedResolutionMinutes);
+
         materialityScorer.notion(tradeBreak);
         tradeBreak.setCompositeScore(materialityScorer.scoreTradeBreak(tradeBreak));
+
+        Long minutesLeft = tradeBreak.getMinutesToSettlement();
+        boolean failRisk = minutesLeft != null
+                && estimatedResolutionMinutes != null
+                && (minutesLeft - estimatedResolutionMinutes) < 0;
+        tradeBreak.setSettlementFailRisk(failRisk);
 
         return tradeBreakRepository.save(tradeBreak);
     }
@@ -138,4 +163,6 @@ public class ReconciliationServiceImpl implements ReconciliationService {
 
         return false;
     }
+
+
 }
