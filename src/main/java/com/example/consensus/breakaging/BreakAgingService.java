@@ -4,8 +4,10 @@ import com.example.consensus.model.Enums.BreakStatus;
 
 public interface BreakAgingService {
 
-    public void escalateStaleBreaks();
+    void escalateStaleBreaks();
 
-    public void transitionState(Long breakId, BreakStatus newStatus, String assignedTo, String notes);
+    void pendingConfirmSweep();
+
+    void transitionState(Long breakId, BreakStatus newStatus, String changedBy, String assignedTo, String notes);
 
 }

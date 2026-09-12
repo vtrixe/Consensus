@@ -82,7 +82,7 @@ public class TradeBreak {
 
     private Boolean slaBreached = false;
 
-    @Column(name = "investigation_started_at.")
+    @Column(name = "investigation_started_at")
 
     private LocalDateTime investigationStartedAt;
 

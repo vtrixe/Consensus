@@ -12,6 +12,4 @@ public interface TradeBreakAuditRepository extends JpaRepository<TradeBreakAudit
 
     List<TradeBreakAudit> findAllByTradeBreak_Id(Long breakId);
 
-    Optional<TradeBreakAudit> findFirstByTradeBreak_IdOrderByIdDesc(Long breakId);
-
 }
