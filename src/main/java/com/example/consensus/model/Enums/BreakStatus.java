@@ -2,5 +2,8 @@ package com.example.consensus.model.Enums;
 
 public enum BreakStatus {
     OPEN,
-    RESOLVED
+    RESOLVED,
+    INVESTIGATING,
+    PENDING_CONFIRM,
+    WRITTEN_OFF
 }

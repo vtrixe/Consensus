@@ -69,5 +69,27 @@ public class TradeBreak {
     private Long compositeScore;                       // 0–100 weighted score
 
     @Column(name = "settlement_fail_risk", nullable = false)
-    private Boolean settlementFailRisk = false;        // true when resolution time > time remaining
+    private Boolean settlementFailRisk = false;
+
+    @Column(name = "assigned_to")
+    private String assignedTo;
+
+    @Column(name= "last_change_at" )
+
+    private LocalDateTime lastChangeAt;
+
+    @Column(name="sla_breached", nullable = false)
+
+    private Boolean slaBreached = false;
+
+    @Column(name = "investigation_started_at.")
+
+    private LocalDateTime investigationStartedAt;
+
+    @Column(name = "resolved_at")
+
+    private LocalDateTime resolvedAt;
+
+
+
 }
