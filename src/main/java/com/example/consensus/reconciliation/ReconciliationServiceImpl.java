@@ -1,5 +1,6 @@
 package com.example.consensus.reconciliation;
 
+import com.example.consensus.fuzzymatch.FuzzyMatchingService;
 import com.example.consensus.model.Enums.BreakStatus;
 import com.example.consensus.model.Enums.BreakType;
 import com.example.consensus.model.Enums.DataSource;
@@ -28,6 +29,7 @@ public class ReconciliationServiceImpl implements ReconciliationService {
     private final TradeRepository tradeRepository;
     private final TradeBreakRepository tradeBreakRepository;
     private final MaterialityScorer  materialityScorer;
+    private final FuzzyMatchingService fuzzyMatchingService;
 
     @Override
     public List<TradeBreak> reconcile() {
@@ -44,7 +46,9 @@ public class ReconciliationServiceImpl implements ReconciliationService {
 
             if (custodianOpt.isEmpty()) {
                 Long estimatedMinutestoResolution = materialityScorer.estimateResolutionMinutes(BreakType.MISSING_CUSTODIAN, blotter.getCounterparty(),blotter.getSymbol(),blotter.getQuantity());
-                breaks.add(newBreak(blotter.getTradeId(), BreakType.MISSING_CUSTODIAN, null, null,null, estimatedMinutestoResolution));
+                TradeBreak missingCustodianBreak = newBreak(blotter.getTradeId(), BreakType.MISSING_CUSTODIAN, null, null,null, estimatedMinutestoResolution);
+                breaks.add(missingCustodianBreak);
+                fuzzyMatchingService.matchBreak(missingCustodianBreak.getId());
             } else {
                 Trade cust = custodianOpt.get();
                 if (!withinTolerance(blotter, cust, BreakType.PRICE_MISMATCH)) {
@@ -94,7 +98,9 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                             c.getSymbol(),
                             c.getQuantity()
                     );
-                    return newBreak(c.getTradeId(), BreakType.MISSING_BLOTTER, null, null, null, estimated);
+                    TradeBreak missingBlotterBreak = newBreak(c.getTradeId(), BreakType.MISSING_BLOTTER, null, null, null, estimated);
+                    fuzzyMatchingService.matchBreak(missingBlotterBreak.getId());
+                    return missingBlotterBreak;
                 })
                 .forEach(breaks::add);
 
