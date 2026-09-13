@@ -218,7 +218,8 @@ public class TradeGenerator {
                     continue;
                 }
 
-                Trade custodian = buildCustodianTrade(blotter, scenario);
+                Trade custodian = buildCustodianTrade(blotter,
+                        scenario == BreakScenario.DUPLICATE ? BreakScenario.CLEAN : scenario);
                 tradeRepository.save(custodian);
 
                 if (scenario == BreakScenario.DUPLICATE) {

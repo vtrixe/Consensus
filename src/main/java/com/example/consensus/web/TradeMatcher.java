@@ -18,7 +18,7 @@ public class TradeMatcher {
 
     @PostMapping("/{id}/reject")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void rejectCandidate(@PathVariable Long id, RejectCandidateRequestBody requestBody) {
+    public void rejectCandidate(@PathVariable Long id, @RequestBody RejectCandidateRequestBody requestBody) {
         fuzzyMatchingService.rejectCandidate(id,requestBody.getRejectedBy());
     }
 }

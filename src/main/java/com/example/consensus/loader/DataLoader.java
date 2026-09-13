@@ -7,7 +7,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
-@Component
+// DataLoader disabled — trade generation is now API-triggered via POST /trades/generate
 @RequiredArgsConstructor
 @Slf4j
 public class DataLoader implements ApplicationListener<ApplicationReadyEvent> {
@@ -17,14 +17,6 @@ public class DataLoader implements ApplicationListener<ApplicationReadyEvent> {
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
-        if (tradeRepository.count() > 0) {
-            log.info("Trades already seeded ({} rows), skipping generation",
-                    tradeRepository.count());
-            return;
-        }
-
-        log.info("Seeding trade data...");
-        tradeGenerator.generate();
-        log.info("Seeded {} trades", tradeRepository.count());
+        // no-op: seeding is manual
     }
 }

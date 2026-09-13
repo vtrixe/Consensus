@@ -251,12 +251,12 @@ public class FuzzyMatchingServiceImpl implements FuzzyMatchingService {
 
     private void rerankCandidates(Long tradeBreakId) {
         List<TradeMatchCandidate> candidates =
-                tradeMatchCandidateRepository.findByTradeBreak_IdOrderByConfidenceScoreDesc(tradeBreakId);
-
-        candidates.sort(
-                Comparator.comparing(TradeMatchCandidate::getConfidenceScore, Comparator.reverseOrder())
-                        .thenComparing(TradeMatchCandidate::getCandidateTradeId)
-        );
+                tradeMatchCandidateRepository.findByTradeBreak_IdOrderByConfidenceScoreDesc(tradeBreakId)
+                        .stream()
+                        .filter(c -> !Boolean.TRUE.equals(c.getRejected()))
+                        .sorted(Comparator.comparing(TradeMatchCandidate::getConfidenceScore, Comparator.reverseOrder())
+                                .thenComparing(TradeMatchCandidate::getCandidateTradeId))
+                        .toList();
 
         for (int i = 0; i < candidates.size(); i++) {
             candidates.get(i).setRank(i + 1);

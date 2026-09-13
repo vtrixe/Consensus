@@ -12,5 +12,5 @@ public interface TradeMatchCandidateRepository  extends JpaRepository<TradeMatch
 
     List<TradeMatchCandidate> findByTradeBreak_IdOrderByConfidenceScoreDesc(Long tradeBreakId);
 
-    List<TradeMatchCandidate> findByTradeBreak_IdOrderByRankAsc(Long tradeBreakId);
+    List<TradeMatchCandidate> findByTradeBreak_IdAndRejectedFalseOrderByRankAsc(Long tradeBreakId);
 }

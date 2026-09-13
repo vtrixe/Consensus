@@ -53,7 +53,7 @@ public class TradeBreakController {
     }
     @GetMapping("/{id}/candidates")
     public List<TradeMatchCandidate> getMatchCandidates(@PathVariable Long id) {
-        return tradeMatchCandidateRepository.findByTradeBreak_IdOrderByRankAsc(id);
+        return tradeMatchCandidateRepository.findByTradeBreak_IdAndRejectedFalseOrderByRankAsc(id);
     }
 
 }

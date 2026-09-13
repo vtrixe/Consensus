@@ -59,6 +59,14 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                         newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.INVESTIGATING, changedBy, notes, assignedTo,null, null);
                     }
                     break;
+                case RESOLVED:
+                    // SYSTEM only: AUTO_MATCH bypass — humans must go through INVESTIGATING → PENDING_CONFIRM first
+                    if (!"SYSTEM".equals(changedBy)) {
+                        log.error("BreakAgingServiceImpl transitionState - OPEN → RESOLVED only allowed for SYSTEM");
+                    } else {
+                        newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.RESOLVED, changedBy, notes, assignedTo, null, null);
+                    }
+                    break;
                     default:
                         log.error("BreakAgingServiceImpl transitionState - inapplicable break status: " + newStatus);
                         break;
@@ -82,6 +90,13 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                     }
                     else {
                         newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.WRITTEN_OFF, changedBy, notes, assignedTo, null, null);
+                    }
+                    break;
+                case RESOLVED:
+                    if (!"SYSTEM".equals(changedBy)) {
+                        log.error("BreakAgingServiceImpl transitionState - INVESTIGATING → RESOLVED only allowed for SYSTEM; use PENDING_CONFIRM first");
+                    } else {
+                        newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.RESOLVED, changedBy, notes, assignedTo, null, null);
                     }
                     break;
                     default:

@@ -1,7 +1,6 @@
 package com.example.consensus.model.entity;
 
 import com.example.consensus.model.Enums.MatchTier;
-import com.example.consensus.model.dtos.ScoreBreakdown;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -49,7 +48,6 @@ public class TradeMatchCandidate {
     @Column(name = "rejected_by")
     private String rejectedBy;
 
-    @Lob
-    @Column(name = "score_breakdown")
+    @Column(name = "score_breakdown", columnDefinition = "TEXT")
     private String scoreBreakdown;
 }
