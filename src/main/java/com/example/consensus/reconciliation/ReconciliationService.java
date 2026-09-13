@@ -9,7 +9,7 @@ public interface ReconciliationService {
 
     List<TradeBreak> reconcile();
 
-    List<TradeBreak> findBreaks(BreakStatus status); // null = return all
+    List<TradeBreak> findBreaks(BreakStatus status);
 
     List<TradeBreak> findBreaksByTradeId(String tradeId);
 }
