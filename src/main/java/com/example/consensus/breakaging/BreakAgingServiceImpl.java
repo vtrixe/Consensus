@@ -8,12 +8,18 @@ import com.example.consensus.model.repository.TradeBreakAuditRepository;
 import com.example.consensus.model.repository.TradeBreakRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
+import java.util.Objects;
+
+import static java.lang.Boolean.TRUE;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +30,6 @@ public class BreakAgingServiceImpl implements BreakAgingService {
 
     private final TradeBreakRepository tradeBreakRepository;
     private final TradeBreakAuditRepository tradeBreakAuditRepository;
-
 
 
     @Override
@@ -43,7 +48,7 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                         log.error("BreakAgingServiceImpl transitionState - settlement failed as cannot transfer to WRITTEN_OFF");
                     }
                     else{
-                        newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.WRITTEN_OFF, changedBy, notes, assignedTo);
+                        newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.WRITTEN_OFF, changedBy, notes, assignedTo, null, null);
                     }
                     break;
                 case INVESTIGATING:
@@ -51,7 +56,7 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                         log.error("BreakAgingServiceImpl transitionState - human assignee required to claim INVESTIGATING");
                     }
                     else {
-                        newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.INVESTIGATING, changedBy, notes, assignedTo);
+                        newTradeBreakAudit(tradeBreak, BreakStatus.OPEN, BreakStatus.INVESTIGATING, changedBy, notes, assignedTo,null, null);
                     }
                     break;
                     default:
@@ -66,17 +71,17 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                     log.warn("skipping as status already investigating trade break for  {}", breakId);
                     break;
                 case OPEN:
-                    newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.OPEN, changedBy, notes, assignedTo);
+                    newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.OPEN, changedBy, notes, assignedTo, null, null);
                     break;
                 case PENDING_CONFIRM:
-                    newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.PENDING_CONFIRM, changedBy, notes, assignedTo);
+                    newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.PENDING_CONFIRM, changedBy, notes, assignedTo, null, null);
                     break;
                 case WRITTEN_OFF:
                     if(tradeBreak.getSettlementFailRisk() || MaterialityTier.CRITICAL.equals(tradeBreak.getMaterialityTier()) || StringUtils.isEmpty(notes)){
                         log.error("BreakAgingServiceImpl transitionState - settlement failed as cannot transfer to WRITTEN_OFF");
                     }
                     else {
-                        newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.WRITTEN_OFF, changedBy, notes, assignedTo);
+                        newTradeBreakAudit(tradeBreak, BreakStatus.INVESTIGATING, BreakStatus.WRITTEN_OFF, changedBy, notes, assignedTo, null, null);
                     }
                     break;
                     default:
@@ -90,10 +95,10 @@ public class BreakAgingServiceImpl implements BreakAgingService {
                     log.warn("skipping as status already under pending confirmation  trade break for  {}", breakId);
                     break;
                 case INVESTIGATING:
-                    newTradeBreakAudit(tradeBreak, BreakStatus.PENDING_CONFIRM, BreakStatus.INVESTIGATING, changedBy, notes, assignedTo);
+                    newTradeBreakAudit(tradeBreak, BreakStatus.PENDING_CONFIRM, BreakStatus.INVESTIGATING, changedBy, notes, assignedTo, null, null);
                     break;
                 case RESOLVED:
-                    newTradeBreakAudit(tradeBreak, BreakStatus.PENDING_CONFIRM, BreakStatus.RESOLVED, changedBy, notes, assignedTo);
+                    newTradeBreakAudit(tradeBreak, BreakStatus.PENDING_CONFIRM, BreakStatus.RESOLVED, changedBy, notes, assignedTo, null, null);
                     break;
                 default:
                     log.error("BreakAgingServiceImpl transitionState - inapplicable break status: " + newStatus);
@@ -103,7 +108,7 @@ public class BreakAgingServiceImpl implements BreakAgingService {
         if(BreakStatus.RESOLVED.equals(tradeBreak.getStatus())){
             switch (newStatus) {
                 case OPEN:
-                    newTradeBreakAudit(tradeBreak, BreakStatus.RESOLVED, BreakStatus.OPEN, changedBy, notes, assignedTo);
+                    newTradeBreakAudit(tradeBreak, BreakStatus.RESOLVED, BreakStatus.OPEN, changedBy, notes, assignedTo, null, null);
                     break;
                     default:
                         log.error("BreakAgingServiceImpl transitionState - inapplicable break status: " + newStatus);
@@ -120,18 +125,44 @@ public class BreakAgingServiceImpl implements BreakAgingService {
     }
 
     @Override
+    @Scheduled(fixedRate = 900000)
     public void escalateStaleBreaks() {
-        // TODO: scheduler — implemented next
+
+        List<TradeBreak> currBreaks = tradeBreakRepository.findAllByStatusIn(List.of(BreakStatus.OPEN, BreakStatus.INVESTIGATING));
+
+        for (TradeBreak tradeBreak : currBreaks) {
+
+            // settlementFailRisk: force any OPEN break to INVESTIGATING regardless of tier
+            if (TRUE.equals(tradeBreak.getSettlementFailRisk()) && BreakStatus.OPEN.equals(tradeBreak.getStatus())) {
+                transitionState(tradeBreak.getId(), BreakStatus.INVESTIGATING, "SYSTEM", "SYSTEM",
+                        "Auto-escalated: settlement fail risk — pending human assignment");
+                continue;
+            }
+
+            Long hoursPassed;
+            if (tradeBreak.getStatus().equals(BreakStatus.OPEN)) {
+                hoursPassed = Duration.between(tradeBreak.getDetectedAt(), LocalDateTime.now(ET)).toHours();
+            } else {
+                hoursPassed = Duration.between(tradeBreak.getLastChangeAt(), LocalDateTime.now(ET)).toHours();
+            }
+
+            incrementMateriality(tradeBreak, hoursPassed);
+        }
+
     }
 
     @Override
+    @Scheduled(cron = "0 0 15 * * *", zone = "America/New_York")
     public void pendingConfirmSweep() {
-        // TODO: cron at 3 PM ET — implemented next
+        List<TradeBreak> currPendingBreaks = tradeBreakRepository.findAllByStatusIn(List.of(BreakStatus.PENDING_CONFIRM));
+        for (TradeBreak tradeBreak : currPendingBreaks) {
+            transitionState(tradeBreak.getId(),BreakStatus.INVESTIGATING,"SYSTEM",tradeBreak.getAssignedTo(),"Sweeping to Investigation due to pending stuck at EOD ET");
+        }
     }
 
 
     private void newTradeBreakAudit(TradeBreak tradeBreak, BreakStatus fromStatus, BreakStatus toStatus,
-                                    String changedBy, String notes, String assignedTo) {
+                                    String changedBy, String notes, String assignedTo, Boolean slaBreached, MaterialityTier tier) {
 
         LocalDateTime now = LocalDateTime.now(ET);
 
@@ -168,8 +199,61 @@ public class BreakAgingServiceImpl implements BreakAgingService {
             tradeBreak.setAssignedTo(null);
             tradeBreak.setInvestigationStartedAt(null);
         }
+        if(BooleanUtils.isTrue(slaBreached)){
+            tradeBreak.setSlaBreached(true);
+        }
+
+        if(Objects.nonNull(tier)){
+            tradeBreak.setMaterialityTier(tier);
+        }
 
         tradeBreakRepository.save(tradeBreak);
         log.info("Break {}: {} → {} by {} ({}min in prior state)", tradeBreak.getId(), fromStatus, toStatus, changedBy, durationMinutes);
+    }
+
+    private void incrementMateriality(TradeBreak currBreak, Long hoursPassed) {
+        switch (currBreak.getMaterialityTier()) {
+            case CRITICAL:
+                // Already at ceiling — no tier to promote, just record the breach
+                if (currBreak.getStatus().equals(BreakStatus.OPEN)) {
+                    if (hoursPassed > 4) {
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(), currBreak.getStatus(), "SYSTEM", "SLA breached: already at CRITICAL tier", null, TRUE, null);
+                    }
+                } else {
+                    if (hoursPassed > 2) {
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(), currBreak.getStatus(), "SYSTEM", "SLA breached: already at CRITICAL tier", currBreak.getAssignedTo(), TRUE, null);
+                    }
+                }
+                break;
+            case MAJOR:
+                if(currBreak.getStatus().equals(BreakStatus.OPEN)){
+                    if(hoursPassed > 8){
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(),currBreak.getStatus(),"SYSTEM","Escalating due to SLA time breach",null,TRUE, MaterialityTier.CRITICAL);
+                    }
+                }
+                else {
+                    if(hoursPassed > 4) {
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(), currBreak.getStatus(), "SYSTEM", "Escalating due to SLA time breach", currBreak.getAssignedTo(), TRUE, MaterialityTier.CRITICAL);
+                    }
+                }
+                break;
+
+            case MINOR :
+                if(currBreak.getStatus().equals(BreakStatus.OPEN)){
+                    if(hoursPassed > 24){
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(),currBreak.getStatus(),"SYSTEM","Escalating due to SLA time breach",null,TRUE, MaterialityTier.MAJOR);
+                    }
+                }
+                else {
+                    if(hoursPassed > 8) {
+                        newTradeBreakAudit(currBreak, currBreak.getStatus(), currBreak.getStatus(), "SYSTEM", "Escalating due to SLA time breach", currBreak.getAssignedTo(), TRUE, MaterialityTier.MAJOR);
+                    }
+                }
+                break;
+
+                default:
+                    log.error("BreakAgingServiceImpl transitionState - inapplicable");
+                    break;
+        }
     }
 }

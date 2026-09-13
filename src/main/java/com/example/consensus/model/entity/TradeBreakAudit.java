@@ -1,6 +1,7 @@
 package com.example.consensus.model.entity;
 
 import com.example.consensus.model.Enums.BreakStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,9 +22,9 @@ public class TradeBreakAudit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "trade_break_id", nullable = false)
-
     private TradeBreak tradeBreak;
 
     @Enumerated(EnumType.STRING)
