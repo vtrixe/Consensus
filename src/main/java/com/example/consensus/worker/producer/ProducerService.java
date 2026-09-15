@@ -30,7 +30,7 @@ public class ProducerService {
     }
 
     public void publishTradeIngested(TradeIngestedEvent e) {
-        publish(Topics.TRADE_INGESTTED, e);
+        publish(Topics.TRADE_INGESTED, e);
     }
 
     public <T extends KafkaEvent> void publish(Topics topic, T event) {

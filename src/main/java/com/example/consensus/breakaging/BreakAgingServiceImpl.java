@@ -6,6 +6,8 @@ import com.example.consensus.model.entity.TradeBreak;
 import com.example.consensus.model.entity.TradeBreakAudit;
 import com.example.consensus.model.repository.TradeBreakAuditRepository;
 import com.example.consensus.model.repository.TradeBreakRepository;
+import com.example.consensus.worker.events.BreakStatusChanged;
+import com.example.consensus.worker.producer.ProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.BooleanUtils;
@@ -30,7 +32,7 @@ public class BreakAgingServiceImpl implements BreakAgingService {
 
     private final TradeBreakRepository tradeBreakRepository;
     private final TradeBreakAuditRepository tradeBreakAuditRepository;
-
+    private final ProducerService producerService;
 
     @Override
     public void transitionState(Long breakId, BreakStatus newStatus, String changedBy, String assignedTo, String notes){
@@ -222,7 +224,23 @@ public class BreakAgingServiceImpl implements BreakAgingService {
             tradeBreak.setMaterialityTier(tier);
         }
 
-        tradeBreakRepository.save(tradeBreak);
+       TradeBreak saved =  tradeBreakRepository.save(tradeBreak);
+
+        try {
+            BreakStatusChanged detectedEvent = new BreakStatusChanged();
+            detectedEvent.setBreakId(saved.getId());
+            detectedEvent.setFromStatus(fromStatus);
+            detectedEvent.setToStatus(toStatus);
+            detectedEvent.setChangedBy(changedBy);
+
+            producerService.publishBreakStatusChanged(detectedEvent);
+        } catch (Exception e) {
+            log.error(
+                    "Failed to publish BreakDetectedEvent for tradeBreakId={}",
+                    saved.getId(),
+                    e
+            );
+        }
         log.info("Break {}: {} → {} by {} ({}min in prior state)", tradeBreak.getId(), fromStatus, toStatus, changedBy, durationMinutes);
     }
 

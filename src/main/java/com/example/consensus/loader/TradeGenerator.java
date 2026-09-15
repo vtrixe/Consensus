@@ -69,7 +69,7 @@ public class TradeGenerator {
         return settlement;
     }
 
-    private Trade buildBlotterTrade(String symbol, BigDecimal price,
+    public Trade buildBlotterTrade(String symbol, BigDecimal price,
                                     LocalDate tradeDate, int sequence) {
         String tradeId = String.format("TRD-%s-%s-%03d",
                 symbol, tradeDate.format(DateTimeFormatter.BASIC_ISO_DATE), sequence);
@@ -181,6 +181,33 @@ public class TradeGenerator {
         };
     }
 
+    public List<Trade> generateTick(String symbol, BigDecimal price, LocalDate tradeDate, int sequence) {
+        List<Trade> saved = new ArrayList<>();
+        BreakScenario scenario = BreakScenario.pick(random);
+        Trade blotter = buildBlotterTrade(symbol, price, tradeDate, sequence);
+        tradeRepository.save(blotter);
+        saved.add(blotter);
+
+        if (scenario == BreakScenario.MISSING_TRADE) {
+            return saved;
+        }
+
+        Trade custodian = buildCustodianTrade(blotter,
+                scenario == BreakScenario.DUPLICATE ? BreakScenario.CLEAN : scenario);
+        tradeRepository.save(custodian);
+        saved.add(custodian);
+
+        if (scenario == BreakScenario.DUPLICATE) {
+            Trade duplicate = buildCustodianTrade(blotter, BreakScenario.CLEAN);
+            duplicate.setTradeId(blotter.getTradeId() + "-DUP");
+            tradeRepository.save(duplicate);
+            saved.add(duplicate);
+        }
+
+        log.info("[TICK] symbol={}, scenario={}, trades={}", symbol, scenario, saved.size());
+        return saved;
+    }
+
     public void generate() {
         int sequence = 1;
 
@@ -196,38 +223,14 @@ public class TradeGenerator {
                 continue;
             }
 
-            // pick 4-6 random dates from the available price data
             List<String> dates = new ArrayList<>(priceSeries.keySet());
             Collections.shuffle(dates, random);
             List<String> selectedDates = dates.subList(0, Math.min(5, dates.size()));
 
             for (String dateStr : selectedDates) {
                 LocalDate tradeDate = LocalDate.parse(dateStr);
-                BigDecimal price = new BigDecimal(
-                        priceSeries.get(dateStr).getClose()
-                );
-
-                BreakScenario scenario = BreakScenario.pick(random);
-                Trade blotter = buildBlotterTrade(symbol, price, tradeDate, sequence++);
-
-                // always save the blotter record
-                tradeRepository.save(blotter);
-
-                if (scenario == BreakScenario.MISSING_TRADE) {
-                    // intentionally skip custodian — this IS the break
-                    continue;
-                }
-
-                Trade custodian = buildCustodianTrade(blotter,
-                        scenario == BreakScenario.DUPLICATE ? BreakScenario.CLEAN : scenario);
-                tradeRepository.save(custodian);
-
-                if (scenario == BreakScenario.DUPLICATE) {
-                    // save a second custodian record with a modified tradeId suffix
-                    Trade duplicate = buildCustodianTrade(blotter, BreakScenario.CLEAN);
-                    duplicate.setTradeId(blotter.getTradeId() + "-DUP");
-                    tradeRepository.save(duplicate);
-                }
+                BigDecimal price = new BigDecimal(priceSeries.get(dateStr).getClose());
+                generateTick(symbol, price, tradeDate, sequence++);
             }
         }
     }

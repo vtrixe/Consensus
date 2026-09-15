@@ -6,6 +6,7 @@ import com.example.consensus.worker.events.TradeIngestedEvent;
 import com.example.consensus.worker.producer.ProducerService;
 import com.example.consensus.worker.topics.Topics;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TradeWebSocketHandler extends TextWebSocketHandler {
 
-    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule());
     private final TradeRepository tradeRepository;
     private final ProducerService producerService;
 
@@ -44,13 +46,11 @@ public class TradeWebSocketHandler extends TextWebSocketHandler {
 
             Trade saved = tradeRepository.save(trade);
 
-            TradeIngestedEvent event = new TradeIngestedEvent(
-                    saved.getTradeId(),
-                    saved.getSource(),
-                    saved.getSymbol(),
-                    saved.getSettlementDate();
-            )
-
+            TradeIngestedEvent event = new TradeIngestedEvent();
+            event.setTradeId(saved.getTradeId());
+            event.setSource(trade.getSource());
+            event.setSymbol(trade.getSymbol());
+            event.setSettlementDate(saved.getSettlementDate());
             producerService.publishTradeIngested(event);
 
             Map<String, Object> ack = Map.of(

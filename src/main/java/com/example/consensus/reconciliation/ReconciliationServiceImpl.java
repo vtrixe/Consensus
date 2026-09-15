@@ -7,8 +7,12 @@ import com.example.consensus.model.entity.Trade;
 import com.example.consensus.model.entity.TradeBreak;
 import com.example.consensus.model.repository.TradeBreakRepository;
 import com.example.consensus.model.repository.TradeRepository;
+import com.example.consensus.worker.events.BreakDetectedEvent;
+import com.example.consensus.worker.producer.ProducerService;
+import com.example.consensus.worker.topics.Topics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -28,8 +32,10 @@ public class ReconciliationServiceImpl implements ReconciliationService {
     private final TradeRepository tradeRepository;
     private final TradeBreakRepository tradeBreakRepository;
     private final MaterialityScorer  materialityScorer;
+    private final ProducerService producerService;
 
     @Override
+    @Scheduled(fixedRate = 120_000)
     public List<TradeBreak> reconcile() {
         List<TradeBreak> breaks = new ArrayList<>();
 
@@ -119,6 +125,11 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                                 String blotterValue, String custodianValue,
                                 BigDecimal bpsDeviation, Long estimatedResolutionMinutes) {
 
+        if (tradeBreakRepository.findByTradeIdAndBreakTypeAndStatus(tradeId, type, BreakStatus.OPEN).isPresent()) {
+            log.debug("Dedup: OPEN break already exists for tradeId={}, type={}", tradeId, type);
+            return tradeBreakRepository.findByTradeIdAndBreakTypeAndStatus(tradeId, type, BreakStatus.OPEN).get();
+        }
+
         TradeBreak tradeBreak = new TradeBreak()
                 .setTradeId(tradeId)
                 .setBreakType(type)
@@ -140,7 +151,27 @@ public class ReconciliationServiceImpl implements ReconciliationService {
                 && minutesLeft < estimatedResolutionMinutes;
         tradeBreak.setSettlementFailRisk(failRisk);
 
-        return tradeBreakRepository.save(tradeBreak);
+        TradeBreak saved =  tradeBreakRepository.save(tradeBreak);
+
+
+        try {
+            BreakDetectedEvent detectedEvent = new BreakDetectedEvent();
+            detectedEvent.setBreakId(saved.getId());
+            detectedEvent.setBreakType(type);
+            detectedEvent.setMaterialityTier(saved.getMaterialityTier());
+            detectedEvent.setSettlementFailRisk(failRisk);
+
+            producerService.publishBreakDetected(detectedEvent);
+
+        } catch (Exception e) {
+            log.error(
+                    "Failed to publish BreakDetectedEvent for tradeBreakId={}",
+                    saved.getId(),
+                    e
+            );
+        }
+
+        return saved;
     }
 
     private BigDecimal calculateBpsDeviation(Trade a, Trade b) {

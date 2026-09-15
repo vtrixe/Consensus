@@ -12,6 +12,8 @@ import com.example.consensus.model.entity.TradeMatchCandidate;
 import com.example.consensus.model.repository.TradeBreakRepository;
 import com.example.consensus.model.repository.TradeMatchCandidateRepository;
 import com.example.consensus.model.repository.TradeRepository;
+import com.example.consensus.worker.events.CandidateRejectedEvent;
+import com.example.consensus.worker.producer.ProducerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class FuzzyMatchingServiceImpl implements FuzzyMatchingService {
     private final TradeRepository tradeRepository;
     private final TradeMatchCandidateRepository tradeMatchCandidateRepository;
     private final BreakAgingService breakAgingService;
+    private final ProducerService producerService;
 
     @Override
    public void  matchBreak(Long breakId){
@@ -249,7 +252,7 @@ public class FuzzyMatchingServiceImpl implements FuzzyMatchingService {
         };
     }
 
-    private void rerankCandidates(Long tradeBreakId) {
+    public void rerankCandidates(Long tradeBreakId) {
         List<TradeMatchCandidate> candidates =
                 tradeMatchCandidateRepository.findByTradeBreak_IdOrderByConfidenceScoreDesc(tradeBreakId)
                         .stream()
@@ -276,7 +279,21 @@ public class FuzzyMatchingServiceImpl implements FuzzyMatchingService {
         tradeMatchCandidate.setRejectedBy(rejectedBy);
         tradeMatchCandidate.setRejectedAt(java.time.LocalDateTime.now());  // FIX: was missing
         tradeMatchCandidateRepository.save(tradeMatchCandidate);
-        rerankCandidates(tradeBreak.getId());
+
+        try {
+            CandidateRejectedEvent detectedEvent = new CandidateRejectedEvent();
+            detectedEvent.setCandidateId(candidateId);
+            detectedEvent.setBreakId(tradeBreak.getId());
+
+            producerService.publishCandidateRejected(detectedEvent);
+            
+        } catch (Exception e) {
+            log.error(
+                    "Failed to publish BreakDetectedEvent for tradeBreakId={}",
+                    tradeBreak.getId(),
+                    e
+            );
+        }
 
     }
 

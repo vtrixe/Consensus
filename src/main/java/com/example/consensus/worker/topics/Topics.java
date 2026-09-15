@@ -5,7 +5,7 @@ public enum Topics {
     BREAK_DETECTED("breaks.detected"),
     BREAK_STATUS_UPDATE("breaks.status.changed"),
     CANDIDATE_REJECTED("candidate.rejected"),
-    TRADE_INGESTTED("trade.ingested");
+    TRADE_INGESTED("trade.ingested");
 
     private final String topic;
 
