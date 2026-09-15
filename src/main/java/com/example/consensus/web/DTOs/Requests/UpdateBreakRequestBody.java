@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UpdateBreakRequestBody {
     private BreakStatus newStatus;
-    private String changedBy;
     private String assignedTo;
     private String notes;
 }

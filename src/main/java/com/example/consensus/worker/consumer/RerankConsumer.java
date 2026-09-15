@@ -1,6 +1,7 @@
 package com.example.consensus.worker.consumer;
 
 import com.example.consensus.fuzzymatch.FuzzyMatchingService;
+import com.example.consensus.tenant.TenantContext;
 import com.example.consensus.worker.events.CandidateRejectedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,10 +17,13 @@ public class RerankConsumer {
 
     @KafkaListener(topics = "candidate.rejected", groupId = "consensus-group")
     public void onCandidateRejected(CandidateRejectedEvent event) {
+        TenantContext.set(event.getTenantSchema());
         try {
             fuzzyMatchingService.rerankCandidates(event.getBreakId());
         } catch (Exception e) {
             log.error("RerankConsumer failed for breakId={}", event.getBreakId(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 }

@@ -2,6 +2,7 @@ package com.example.consensus.worker.consumer;
 
 import com.example.consensus.fuzzymatch.FuzzyMatchingService;
 import com.example.consensus.model.Enums.BreakType;
+import com.example.consensus.tenant.TenantContext;
 import com.example.consensus.worker.events.BreakDetectedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +22,13 @@ public class FuzzyMatchConsumer {
                 && event.getBreakType() != BreakType.MISSING_CUSTODIAN) {
             return;
         }
+        TenantContext.set(event.getTenantSchema());
         try {
             fuzzyMatchingService.matchBreak(event.getBreakId());
         } catch (Exception e) {
             log.error("FuzzyMatchConsumer failed for breakId={}", event.getBreakId(), e);
+        } finally {
+            TenantContext.clear();
         }
     }
 }

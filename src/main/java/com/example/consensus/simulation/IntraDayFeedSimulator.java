@@ -7,7 +7,7 @@ import com.example.consensus.outbound.EquityPrices;
 import com.example.consensus.outbound.MarketDataOutbound;
 import com.example.consensus.worker.events.TradeIngestedEvent;
 import com.example.consensus.worker.producer.ProducerService;
-import jakarta.annotation.PostConstruct;
+import com.example.consensus.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -15,8 +15,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Component
@@ -31,41 +31,62 @@ public class IntraDayFeedSimulator {
     private static final List<String> SYMBOLS = List.of("AAPL", "MSFT", "JPM");
     private final Random random = new Random();
     private final Map<String, SymbolState> symbolState = new HashMap<>();
-    private int counter=0;
+    private final Set<String> activeTenants = ConcurrentHashMap.newKeySet();
+    private int counter = 0;
+
+    public void start(String schema) {
+        if (symbolState.isEmpty()) seedPrices();
+        activeTenants.add(schema);
+        log.info("Simulation started for schema={}", schema);
+    }
+
+    public void stop(String schema) {
+        activeTenants.remove(schema);
+        log.info("Simulation stopped for schema={}", schema);
+    }
 
     @Scheduled(fixedRate = 30_000)
     public void simulateIntraDayFeed() {
-        List<String> symbols = new ArrayList<>(symbolState.keySet());
-        String symbol = symbols.get(random.nextInt(symbols.size()));
-        SymbolState current = symbolState.get(symbol);
-        double tickDt = 30.0 / 23400.0;
-        double Z = random.nextGaussian();
-        double mu = current.getRsMean();
-        double sigma = current.getDailySigma();
-        double SnextTick = current.getLastClose() * Math.exp(
-                (mu - 0.5 * sigma * sigma) * tickDt
-                        + sigma * Math.sqrt(tickDt) * Z
-        );
-        current.setLastClose(SnextTick);
-        List<Trade> trades = tradeGenerator.generateTick(symbol, BigDecimal.valueOf(current.getLastClose()), LocalDate.now(), ++counter);
-        trades.forEach(t -> {
-            TradeIngestedEvent event = new TradeIngestedEvent();
-            event.setTradeId(t.getTradeId());
-            event.setSource(t.getSource());
-            event.setSymbol(t.getSymbol());
-            event.setSettlementDate(t.getSettlementDate());
-            producerService.publishTradeIngested(event);
-        });
-
+        if (activeTenants.isEmpty() || symbolState.isEmpty()) return;
+        for (String schema : activeTenants) {
+            TenantContext.set(schema);
+            try {
+                List<String> symbols = new ArrayList<>(symbolState.keySet());
+                String symbol = symbols.get(random.nextInt(symbols.size()));
+                SymbolState current = symbolState.get(symbol);
+                double tickDt = 30.0 / 23400.0;
+                double Z = random.nextGaussian();
+                double mu = current.getRsMean();
+                double sigma = current.getDailySigma();
+                double SnextTick = current.getLastClose() * Math.exp(
+                        (mu - 0.5 * sigma * sigma) * tickDt + sigma * Math.sqrt(tickDt) * Z
+                );
+                current.setLastClose(SnextTick);
+                List<Trade> trades = tradeGenerator.generateTick(symbol, BigDecimal.valueOf(current.getLastClose()), LocalDate.now(), ++counter);
+                trades.forEach(t -> {
+                    TradeIngestedEvent event = new TradeIngestedEvent();
+                    event.setTradeId(t.getTradeId());
+                    event.setSource(t.getSource());
+                    event.setSymbol(t.getSymbol());
+                    event.setSettlementDate(t.getSettlementDate());
+                    event.setTenantSchema(schema);
+                    producerService.publishTradeIngested(event);
+                });
+            } finally {
+                TenantContext.clear();
+            }
+        }
     }
-    @PostConstruct
+
     private void seedPrices() {
         for (String symbol : SYMBOLS) {
-            Map<String, EquityPrices.DailyData> series = marketDataOutbound.getDailySeries(symbol).getTimeSeriesDaily();
+            Map<String, EquityPrices.DailyData> series;
             try {
+                series = marketDataOutbound.getDailySeries(symbol).getTimeSeriesDaily();
                 Thread.sleep(15_000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.warn("seedPrices: skipping {} — {}", symbol, e.getMessage());
+                continue;
             }
             List<String> keys = new ArrayList<>(series.keySet());
             Collections.sort(keys);

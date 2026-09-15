@@ -12,6 +12,7 @@ import com.example.consensus.model.entity.TradeMatchCandidate;
 import com.example.consensus.model.repository.TradeBreakRepository;
 import com.example.consensus.model.repository.TradeMatchCandidateRepository;
 import com.example.consensus.model.repository.TradeRepository;
+import com.example.consensus.tenant.TenantContext;
 import com.example.consensus.worker.events.CandidateRejectedEvent;
 import com.example.consensus.worker.producer.ProducerService;
 import lombok.RequiredArgsConstructor;
@@ -284,6 +285,7 @@ public class FuzzyMatchingServiceImpl implements FuzzyMatchingService {
             CandidateRejectedEvent detectedEvent = new CandidateRejectedEvent();
             detectedEvent.setCandidateId(candidateId);
             detectedEvent.setBreakId(tradeBreak.getId());
+            detectedEvent.setTenantSchema(TenantContext.get());
 
             producerService.publishCandidateRejected(detectedEvent);
             

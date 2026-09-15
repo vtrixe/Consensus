@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 public class CandidateRejectedEvent  implements KafkaEvent {
     Long candidateId;
     Long breakId;
+    String tenantSchema;
 
     public String getEventKey() {
         return breakId != null ? breakId.toString() : null;

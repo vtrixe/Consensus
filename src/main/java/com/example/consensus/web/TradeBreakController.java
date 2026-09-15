@@ -12,7 +12,10 @@ import com.example.consensus.reconciliation.ReconciliationService;
 import com.example.consensus.web.DTOs.Requests.UpdateBreakRequestBody;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -40,7 +43,18 @@ public class TradeBreakController {
     @PatchMapping("/{id}/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateBreakStatus(@PathVariable Long id, @RequestBody UpdateBreakRequestBody requestBody) {
-         breakAgingService.transitionState(id,requestBody.getNewStatus(),requestBody.getChangedBy(),requestBody.getAssignedTo(),requestBody.getNotes());
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String changedBy = auth.getName();
+
+        if (com.example.consensus.model.Enums.BreakStatus.WRITTEN_OFF.equals(requestBody.getNewStatus())) {
+            boolean authorized = auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_OPS_LEAD") || a.getAuthority().equals("ROLE_ADMIN"));
+            if (!authorized) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "WRITTEN_OFF requires OPS_LEAD or ADMIN role");
+            }
+        }
+
+        breakAgingService.transitionState(id, requestBody.getNewStatus(), changedBy, requestBody.getAssignedTo(), requestBody.getNotes());
     }
     @GetMapping("/{id}/audit")
     public List<TradeBreakAudit> getAuditTrail(@PathVariable Long id) {

@@ -16,6 +16,7 @@ public class BreakDetectedEvent implements KafkaEvent {
     BreakType breakType;
     MaterialityTier materialityTier;
     Boolean settlementFailRisk;
+    String tenantSchema;
 
     public String getEventKey() {
         return breakId != null ? breakId.toString() : null;

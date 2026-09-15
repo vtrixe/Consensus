@@ -7,6 +7,9 @@ import com.example.consensus.model.entity.Trade;
 import com.example.consensus.model.entity.TradeBreak;
 import com.example.consensus.model.repository.TradeBreakRepository;
 import com.example.consensus.model.repository.TradeRepository;
+import com.example.consensus.tenant.Tenant;
+import com.example.consensus.tenant.TenantContext;
+import com.example.consensus.tenant.TenantRepository;
 import com.example.consensus.worker.events.BreakDetectedEvent;
 import com.example.consensus.worker.producer.ProducerService;
 import com.example.consensus.worker.topics.Topics;
@@ -19,6 +22,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,10 +37,20 @@ public class ReconciliationServiceImpl implements ReconciliationService {
     private final TradeBreakRepository tradeBreakRepository;
     private final MaterialityScorer  materialityScorer;
     private final ProducerService producerService;
+    private final TenantRepository tenantRepository;
 
     @Override
     @Scheduled(fixedRate = 120_000)
     public List<TradeBreak> reconcile() {
+        if (TenantContext.get() == null) {
+            List<TradeBreak> all = new ArrayList<>();
+            for (Tenant tenant : tenantRepository.findAll()) {
+                TenantContext.set(tenant.getSchemaName());
+                try { all.addAll(reconcile()); } finally { TenantContext.clear(); }
+            }
+            return all;
+        }
+
         List<TradeBreak> breaks = new ArrayList<>();
 
         List<Trade> blotterTrades = tradeRepository.findBySource(DataSource.BLOTTER);
@@ -160,6 +174,7 @@ public class ReconciliationServiceImpl implements ReconciliationService {
             detectedEvent.setBreakType(type);
             detectedEvent.setMaterialityTier(saved.getMaterialityTier());
             detectedEvent.setSettlementFailRisk(failRisk);
+            detectedEvent.setTenantSchema(TenantContext.get());
 
             producerService.publishBreakDetected(detectedEvent);
 

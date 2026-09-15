@@ -16,6 +16,7 @@ public class TradeIngestedEvent implements KafkaEvent {
     DataSource  source;
     String symbol;
     LocalDate settlementDate;
+    String tenantSchema;
 
     public String getEventKey() {
         return tradeId != null ? tradeId.toString() : null;
