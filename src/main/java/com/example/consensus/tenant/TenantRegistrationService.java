@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.sql.DataSource;
 import java.util.UUID;
@@ -19,7 +18,6 @@ public class TenantRegistrationService {
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
 
-    @Transactional
     public Tenant register(String name) {
         if (tenantRepository.existsByName(name)) {
             throw new IllegalArgumentException("Tenant already exists: " + name);
@@ -28,11 +26,9 @@ public class TenantRegistrationService {
         String schema = "tenant_" + name.toLowerCase().replaceAll("[^a-z0-9]", "_");
         String apiKey = UUID.randomUUID().toString();
 
-        // CREATE SCHEMA outside the transaction (DDL in Postgres auto-commits anyway)
         jdbcTemplate.execute("CREATE SCHEMA IF NOT EXISTS \"" + schema + "\"");
         log.info("Created schema={}", schema);
 
-        // Run Flyway migrations against the new schema
         Flyway.configure()
                 .dataSource(dataSource)
                 .schemas(schema)

@@ -46,6 +46,10 @@ dependencies {
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
 
+    // ── Excel export ─────────────────────────────────────────────────────
+    implementation 'org.apache.poi:poi-ooxml:5.2.5'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
     // ── Utilities ─────────────────────────────────────────────────────────
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

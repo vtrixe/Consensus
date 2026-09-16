@@ -32,6 +32,10 @@ public class JwtUtil {
         return claims(token).getSubject();
     }
 
+    public String extractRole(String token) {
+        return claims(token).get("role", String.class);
+    }
+
     public boolean isValid(String token) {
         try { claims(token); return true; }
         catch (Exception e) { return false; }
@@ -43,6 +47,6 @@ public class JwtUtil {
     }
 
     private SecretKey key() {
-        return Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        return Keys.hmacShaKeyFor(Decoders.BASE64URL.decode(secret));
     }
 }
