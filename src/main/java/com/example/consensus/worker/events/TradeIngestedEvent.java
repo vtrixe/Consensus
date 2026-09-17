@@ -19,6 +19,6 @@ public class TradeIngestedEvent implements KafkaEvent {
     String tenantSchema;
 
     public String getEventKey() {
-        return tradeId != null ? tradeId.toString() : null;
+        return tradeId;
     }
 }

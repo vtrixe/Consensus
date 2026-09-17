@@ -5,7 +5,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE trades (
-    id              BIGSERIAL PRIMARY KEY,
+    id              BIGSERIAL    PRIMARY KEY,
     trade_id        VARCHAR(255) NOT NULL,
     source          VARCHAR(50)  NOT NULL,
     symbol          VARCHAR(50)  NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE trades (
 );
 
 CREATE TABLE trade_breaks (
-    id                           BIGSERIAL PRIMARY KEY,
+    id                           BIGSERIAL    PRIMARY KEY,
     trade_id                     VARCHAR(255) NOT NULL,
     break_type                   VARCHAR(50)  NOT NULL,
     blotter_value                VARCHAR(255),
@@ -34,16 +34,16 @@ CREATE TABLE trade_breaks (
     minutes_to_settlement        BIGINT,
     estimated_resolution_minutes BIGINT,
     composite_score              BIGINT,
-    settlement_fail_risk         BOOLEAN NOT NULL DEFAULT FALSE,
+    settlement_fail_risk         BOOLEAN   NOT NULL DEFAULT FALSE,
     assigned_to                  VARCHAR(255),
     last_change_at               TIMESTAMP,
-    sla_breached                 BOOLEAN NOT NULL DEFAULT FALSE,
+    sla_breached                 BOOLEAN   NOT NULL DEFAULT FALSE,
     investigation_started_at     TIMESTAMP,
     resolved_at                  TIMESTAMP
 );
 
 CREATE TABLE trade_break_audit (
-    id             BIGSERIAL PRIMARY KEY,
+    id             BIGSERIAL    PRIMARY KEY,
     trade_break_id BIGINT       NOT NULL REFERENCES trade_breaks(id),
     from_status    VARCHAR(50),
     to_status      VARCHAR(50),
@@ -54,7 +54,7 @@ CREATE TABLE trade_break_audit (
 );
 
 CREATE TABLE trade_match_candidates (
-    id                 BIGSERIAL PRIMARY KEY,
+    id                 BIGSERIAL    PRIMARY KEY,
     trade_break_id     BIGINT       NOT NULL REFERENCES trade_breaks(id),
     candidate_trade_id VARCHAR(255) NOT NULL,
     confidence_score   BIGINT       NOT NULL,
@@ -66,18 +66,23 @@ CREATE TABLE trade_match_candidates (
     score_breakdown    TEXT
 );
 
-CREATE INDEX idx_trades_fuzzy_block ON trades (source, symbol, settlement_date);
+CREATE TABLE export_jobs (
+    id              VARCHAR(36)  PRIMARY KEY,
+    model_type      VARCHAR(50)  NOT NULL,
+    status          VARCHAR(20)  NOT NULL DEFAULT 'QUEUED',
+    recipient_email VARCHAR(255) NOT NULL,
+    tenant_schema   VARCHAR(255) NOT NULL,
+    created_at      TIMESTAMP    NOT NULL DEFAULT now(),
+    completed_at    TIMESTAMP,
+    file_key        TEXT,
+    error_message   TEXT
+);
 
-CREATE INDEX idx_trades_source ON trades (source);
-
-CREATE INDEX idx_breaks_dedup ON trade_breaks (trade_id, break_type, status);
-
-CREATE INDEX idx_breaks_status ON trade_breaks (status);
-
-CREATE INDEX idx_breaks_sla ON trade_breaks (status, settlement_date) WHERE status = 'OPEN';
-
-CREATE INDEX idx_audit_break_id ON trade_break_audit (trade_break_id);
-
-CREATE INDEX idx_candidates_break_active ON trade_match_candidates (trade_break_id, rejected, rank);
-
-CREATE INDEX idx_candidates_break_score ON trade_match_candidates (trade_break_id, confidence_score DESC);
+CREATE INDEX idx_trades_fuzzy_block        ON trades                  (source, symbol, settlement_date);
+CREATE INDEX idx_trades_source             ON trades                  (source);
+CREATE INDEX idx_breaks_dedup              ON trade_breaks            (trade_id, break_type, status);
+CREATE INDEX idx_breaks_status             ON trade_breaks            (status);
+CREATE INDEX idx_breaks_sla                ON trade_breaks            (status, settlement_date) WHERE status = 'OPEN';
+CREATE INDEX idx_audit_break_id            ON trade_break_audit       (trade_break_id);
+CREATE INDEX idx_candidates_break_active   ON trade_match_candidates  (trade_break_id, rejected, rank);
+CREATE INDEX idx_candidates_break_score    ON trade_match_candidates  (trade_break_id, confidence_score DESC);

@@ -15,7 +15,7 @@ public class RerankConsumer {
 
     private final FuzzyMatchingService fuzzyMatchingService;
 
-    @KafkaListener(topics = "candidate.rejected", groupId = "consensus-group")
+    @KafkaListener(topics = "candidate.rejected", groupId = "rerank-group")
     public void onCandidateRejected(CandidateRejectedEvent event) {
         TenantContext.set(event.getTenantSchema());
         try {

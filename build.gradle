@@ -49,6 +49,7 @@ dependencies {
     // ── Excel export ─────────────────────────────────────────────────────
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'io.minio:minio:8.5.7'
 
     // ── Utilities ─────────────────────────────────────────────────────────
     compileOnly 'org.projectlombok:lombok'

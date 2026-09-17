@@ -6,6 +6,7 @@ import com.example.consensus.model.entity.TradeBreak;
 import com.example.consensus.model.entity.TradeBreakAudit;
 import com.example.consensus.model.repository.TradeBreakAuditRepository;
 import com.example.consensus.model.repository.TradeBreakRepository;
+import com.example.consensus.tenant.TenantContext;
 import com.example.consensus.worker.events.BreakStatusChanged;
 import com.example.consensus.worker.producer.ProducerService;
 import lombok.RequiredArgsConstructor;
@@ -232,6 +233,7 @@ public class BreakAgingServiceImpl implements BreakAgingService {
             detectedEvent.setFromStatus(fromStatus);
             detectedEvent.setToStatus(toStatus);
             detectedEvent.setChangedBy(changedBy);
+            detectedEvent.setTenantSchema(TenantContext.get());
 
             producerService.publishBreakStatusChanged(detectedEvent);
         } catch (Exception e) {

@@ -11,6 +11,7 @@ public class BreakStatusChanged implements KafkaEvent {
     BreakStatus fromStatus;
     BreakStatus toStatus;
     String changedBy;
+    String tenantSchema;
 
     public String getEventKey() {
         return breakId != null ? breakId.toString() : null;

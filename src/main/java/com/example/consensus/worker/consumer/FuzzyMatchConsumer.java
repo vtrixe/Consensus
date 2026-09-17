@@ -16,7 +16,7 @@ public class FuzzyMatchConsumer {
 
     private final FuzzyMatchingService fuzzyMatchingService;
 
-    @KafkaListener(topics = "breaks.detected", groupId = "consensus-group")
+    @KafkaListener(topics = "breaks.detected", groupId = "fuzzy-match-group")
     public void onBreakDetected(BreakDetectedEvent event) {
         if (event.getBreakType() != BreakType.MISSING_BLOTTER
                 && event.getBreakType() != BreakType.MISSING_CUSTODIAN) {
