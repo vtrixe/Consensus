@@ -19,6 +19,9 @@ public class TenantRegistrationService {
     private final JdbcTemplate jdbcTemplate;
 
     public Tenant register(String name) {
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Tenant name must not be blank");
+        }
         if (tenantRepository.existsByName(name)) {
             throw new IllegalArgumentException("Tenant already exists: " + name);
         }

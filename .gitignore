@@ -1,4 +1,7 @@
 HELP.md
+.env
+reports/
+research_notes/
 .gradle
 build/
 !gradle/wrapper/gradle-wrapper.jar

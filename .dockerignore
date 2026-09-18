@@ -1,0 +1,7 @@
+.gradle
+build
+.git
+.gitignore
+*.md
+load-test
+docs

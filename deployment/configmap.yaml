@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: consensus-config
+  namespace: consensus
+data:
+  SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/consensus"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  MINIO_ENDPOINT: "http://minio:9000"
+  SPRING_MAIL_HOST: "mailhog"
