@@ -52,7 +52,7 @@ docker-compose up
 ./gradlew bootRun
 ```
 
-Swagger UI: http://localhost:8080/swagger-ui.html
+Swagger UI: http://localhost:8080/swagger-ui.html (production: https://api.getconsensus.xyz/swagger-ui.html)
 
 ### Environment variables
 
