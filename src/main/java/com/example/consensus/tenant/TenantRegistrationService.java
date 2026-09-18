@@ -3,8 +3,10 @@ package com.example.consensus.tenant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.sql.DataSource;
 import java.util.UUID;
@@ -20,10 +22,10 @@ public class TenantRegistrationService {
 
     public Tenant register(String name) {
         if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Tenant name must not be blank");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tenant name must not be blank");
         }
         if (tenantRepository.existsByName(name)) {
-            throw new IllegalArgumentException("Tenant already exists: " + name);
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tenant already exists: " + name);
         }
 
         String schema = "tenant_" + name.toLowerCase().replaceAll("[^a-z0-9]", "_");

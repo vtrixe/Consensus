@@ -3,6 +3,7 @@ package com.example.consensus.auth;
 import com.example.consensus.auth.dto.AuthResponse;
 import com.example.consensus.auth.dto.LoginRequest;
 import com.example.consensus.auth.dto.RegisterRequest;
+import com.example.consensus.web.SuccessResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -25,19 +26,19 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
     @SecurityRequirement(name = "ApiKeyAuth")
     @Operation(
         summary = "Register a user",
         description = "Creates a user in the caller's tenant schema. Requires X-Api-Key to scope the user to the correct tenant."
     )
-    @ApiResponse(responseCode = "201", description = "User registered")
-    public void register(@RequestBody RegisterRequest request) {
+    @ApiResponse(responseCode = "200", description = "User registered")
+    public SuccessResponse register(@RequestBody RegisterRequest request) {
         User user = new User();
         user.setUsername(request.getUsername());
         user.setRole(request.getRole() != null ? request.getRole() : Role.ANALYST);
         userRepository.save(user);
         log.info("Registered user={}, role={}", user.getUsername(), user.getRole());
+        return SuccessResponse.of("User registered: " + user.getUsername());
     }
 
     @PostMapping("/login")

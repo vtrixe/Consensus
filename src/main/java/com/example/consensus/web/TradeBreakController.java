@@ -56,15 +56,14 @@ public class TradeBreakController {
     }
 
     @PatchMapping("/{id}/status")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
         summary = "Update break status",
         description = "Transitions a break to a new status. `WRITTEN_OFF` requires the `OPS_LEAD` or `ADMIN` role. All transitions are logged to the audit trail."
     )
-    @ApiResponse(responseCode = "204", description = "Status updated")
+    @ApiResponse(responseCode = "200", description = "Status updated")
     @ApiResponse(responseCode = "403", description = "WRITTEN_OFF attempted without OPS_LEAD / ADMIN role")
     @ApiResponse(responseCode = "404", description = "Break not found")
-    public void updateBreakStatus(
+    public SuccessResponse updateBreakStatus(
             @Parameter(description = "Break ID") @PathVariable Long id,
             @RequestBody UpdateBreakRequestBody requestBody) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -79,6 +78,7 @@ public class TradeBreakController {
         }
 
         breakAgingService.transitionState(id, requestBody.getNewStatus(), changedBy, requestBody.getAssignedTo(), requestBody.getNotes());
+        return SuccessResponse.of("Break " + id + " status updated to " + requestBody.getNewStatus());
     }
     @GetMapping("/{id}/audit")
     @Operation(summary = "Get audit trail", description = "Returns the full status-transition history for a break, including who made each change and any notes.")
@@ -88,11 +88,11 @@ public class TradeBreakController {
         return tradeBreakAuditRepository.findAllByTradeBreak_Id(id);
     }
     @PostMapping("/{id}/fuzzy-match")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Trigger fuzzy match", description = "Runs the fuzzy matching algorithm against this break to find and rank resolution candidates.")
-    @ApiResponse(responseCode = "204", description = "Match candidates populated")
-    public void fuzzyMatch(@Parameter(description = "Break ID") @PathVariable Long id) {
-         fuzzyMatchingService.matchBreak(id);
+    @ApiResponse(responseCode = "200", description = "Match candidates populated")
+    public SuccessResponse fuzzyMatch(@Parameter(description = "Break ID") @PathVariable Long id) {
+        fuzzyMatchingService.matchBreak(id);
+        return SuccessResponse.of("Fuzzy match complete for break " + id);
     }
     @GetMapping("/{id}/candidates")
     @Operation(summary = "Get match candidates", description = "Returns non-rejected match candidates for a break, ordered by rank (highest confidence first).")

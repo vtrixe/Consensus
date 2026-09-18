@@ -9,11 +9,19 @@ import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
 
 @Configuration
-public class OpenApiConfig {
+public class OpenApiConfig implements WebMvcConfigurer {
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/swagger-ui/**")
+                .addResourceLocations("classpath:/META-INF/resources/webjars/swagger-ui/");
+    }
 
     @Bean
     public OpenAPI consensusOpenAPI() {
@@ -33,7 +41,9 @@ public class OpenApiConfig {
                                 """)
                         .version("1.0.0 (M1)")
                         .contact(new Contact().name("Consensus Platform")))
-                .servers(List.of(new Server().url("http://localhost:8080").description("Local")))
+                .servers(List.of(
+                        new Server().url("https://api.getconsensus.xyz").description("Production"),
+                        new Server().url("http://localhost:8080").description("Local")))
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuth",
