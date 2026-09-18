@@ -117,6 +117,86 @@ Full interactive docs available at https://api.getconsensus.xyz/swagger-ui.html
 
 ---
 
+## Architecture & Request Flow
+
+```
+API Client (Bearer JWT + X-Api-Key)
+          │
+          ▼
+   JwtAuthFilter ──── validates Bearer token
+          │
+   TenantContextFilter ──── X-Api-Key → TenantContext (resolves schema)
+          │
+   TenantConnectionProvider ──── SET search_path = "tenant_<name>", public
+          │
+          ▼
+      Controllers
+   ┌────────────────────────────────────────────────────┐
+   │ AuthController       /auth/register  /auth/login   │
+   │ TenantController     /tenants/register             │
+   │ BreakController      /breaks                       │
+   │ SimulationController /simulation/start|stop        │
+   │ AnalyticsController  /analytics/export             │
+   └────────────────────────────────────────────────────┘
+          │
+          ▼
+      Services
+   ┌────────────────────────────────────────────────────┐
+   │ IntraDayFeedSimulator   publishes → trade.ingested  │
+   │ ReconciliationEngine    @Scheduled every 60s        │
+   │ BreakAgingService       escalation + EOTD sweep     │
+   │ ExportService           @Async · Apache POI Excel   │
+   └────────────────────────────────────────────────────┘
+          │
+          ▼
+   Kafka (3 partitions each · partitioned by breakId)
+   ┌─────────────────────────────────────────────────────────────┐
+   │ Topics:  trade.ingested  breaks.detected                    │
+   │          breaks.status.changed  candidate.rejected          │
+   │ DLT:     breaks.detected.DLT  candidate.rejected.DLT        │
+   │ Consumers: FuzzyMatchConsumer (fuzzy-match-group)           │
+   │            RerankConsumer     (rerank-group)                │
+   └─────────────────────────────────────────────────────────────┘
+          │
+          ▼
+   PostgreSQL (schema-per-tenant)
+   ┌──────────┬──────────────┬──────────────┬──────────────┐
+   │  public  │ tenant_acme  │ tenant_beta  │ tenant_gamma │
+   │ tenants  │   6 tables   │   6 tables   │   6 tables   │
+   └──────────┴──────────────┴──────────────┴──────────────┘
+
+   MinIO (:9000) ── stores generated Excel exports
+   MailHog (:1025) ── email delivery (→ SES / SendGrid in prod)
+```
+
+---
+
+## Load Test Results
+
+Tested with [k6](https://k6.io) — 3 isolated tenants, 20 virtual users, 3-minute sustained run.
+
+| Metric | Result |
+|--------|--------|
+| Sustained throughput | **42.7 req/s** |
+| p95 latency | **8.43 ms** |
+| p99 latency | **13.21 ms** |
+| Error rate | **0%** |
+| Tenant isolation failures | **0** |
+| Total checks passed | **7,703 / 7,703** |
+
+Thresholds enforced: `p95 < 500ms`, `p99 < 1000ms`, `error_rate < 5%`, `isolation_failures == 0`.
+
+Run the test yourself:
+```bash
+k6 run load-test/stress.js
+```
+
+> **Known OOM risks under high load:**
+> - `XSSFWorkbook` loads the full workbook in heap on large exports → fix: switch to `SXSSFWorkbook` streaming
+> - `ReconciliationEngine.findAll()` is unbounded on `trade_breaks` → fix: `Pageable` cursor
+
+---
+
 ## Deployment
 
 The production setup uses Docker Compose on a VPS with a Cloudflare Tunnel for HTTPS.
