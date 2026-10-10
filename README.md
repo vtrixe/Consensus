@@ -2,7 +2,7 @@
 
 A multi-tenant trade reconciliation platform built with Spring Boot. Supports schema-per-tenant isolation, real-time trade break detection, fuzzy matching, break aging analysis, and Excel export with MinIO object storage.
 
-**Live API:** https://api.getconsensus.xyz
+**Live API:** https://api.getconsensus.xyz/swagger-ui/index.html
 
 ---
 
